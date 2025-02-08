@@ -34,8 +34,14 @@ class BluetoothService {
       console.log("Requesting Bluetooth device...");
       
       const device = await navigator.bluetooth.requestDevice({
-        acceptAllDevices: true,
-        optionalServices: ['heart_rate']
+        filters: [
+          { services: ['heart_rate'] },
+          { namePrefix: 'Garmin' },
+          { namePrefix: 'HRM' },
+          { namePrefix: 'TICKR' },
+          { namePrefix: 'Polar' }
+        ],
+        optionalServices: ['battery_service']
       });
 
       console.log("Device selected:", device.name);
@@ -59,7 +65,15 @@ class BluetoothService {
 
   private handleHeartRateChange(event: any): void {
     const value = event.target.value;
-    const heartRate = value.getUint8(1);
+    const flags = value.getUint8(0);
+    const rate16Bits = flags & 0x1;
+    let heartRate: number;
+    
+    if (rate16Bits) {
+      heartRate = value.getUint16(1, true);
+    } else {
+      heartRate = value.getUint8(1);
+    }
     
     if (this.onDataCallback) {
       this.onDataCallback({

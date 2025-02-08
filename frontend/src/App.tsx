@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Heart, Upload, Watch, Bluetooth, History, Play, Pause, SkipForward, LogIn, Music2 } from 'lucide-react';
 import Papa from 'papaparse';
+import BluetoothService from './services/bluetooth';
 
 const SPOTIFY_CLIENT_ID = 'b8e7060c1f7845aeb5f3cdd0a1846550';
 const REDIRECT_URI = window.location.origin;
@@ -40,21 +41,29 @@ function App() {
   const [songMetadata, setSongMetadata] = useState<Map<string, AudioFeatures>>(new Map());
   const [isLoadingFeatures, setIsLoadingFeatures] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const bluetoothDevice = useRef<any>(null);
 
   const getHeartAnimationDuration = (bpm: string) => {
     const numericBpm = parseInt(bpm);
-    return numericBpm ? `${60 / numericBpm * 0.8}s` : '2s'; // Default animation duration if no heart rate
+    return numericBpm ? `${60 / numericBpm * 0.8}s` : '2s';
   };
 
-  const handleHRChange = (event: any) => {
-    const value = event.target.value;
-    const heartRate = value.getUint8(1);
-    setHeartRate(heartRate.toString());
-    if (songs.length > 0) {
-      selectSongForHeartRate(heartRate);
-    }
-  };
+  useEffect(() => {
+    const initializeBluetooth = async () => {
+      try {
+        await BluetoothService.initialize();
+      } catch (error) {
+        console.error('Failed to initialize Bluetooth:', error);
+      }
+    };
+
+    initializeBluetooth();
+
+    return () => {
+      if (isConnected) {
+        BluetoothService.disconnect();
+      }
+    };
+  }, []);
 
   const initializeGarmin = async () => {
     if (!navigator.bluetooth) {
@@ -65,26 +74,19 @@ function App() {
     setShowBluetoothDialog(true);
 
     try {
-      const device = await navigator.bluetooth.requestDevice({
-        filters: [{ services: ['heart_rate'] }],
-        optionalServices: ['battery_service']
+      await BluetoothService.connect();
+      
+      BluetoothService.onHeartRateData((data) => {
+        setHeartRate(data.heartRate.toString());
+        if (songs.length > 0) {
+          selectSongForHeartRate(data.heartRate);
+        }
       });
-
-      bluetoothDevice.current = device;
-      console.log('Device selected:', device.name);
-
-      const server = await device.gatt.connect();
-      const service = await server.getPrimaryService('heart_rate');
-      const characteristic = await service.getCharacteristic('heart_rate_measurement');
-
-      await characteristic.startNotifications();
-      characteristic.addEventListener('characteristicvaluechanged', handleHRChange);
 
       setIsConnected(true);
       setShowBluetoothDialog(false);
     } catch (error) {
       if ((error as Error).name === 'NotFoundError') {
-        // User cancelled the device picker - no need to show an error
         setShowBluetoothDialog(false);
         return;
       }
@@ -95,12 +97,13 @@ function App() {
   };
 
   const disconnectGarmin = async () => {
-    if (bluetoothDevice.current?.gatt.connected) {
-      await bluetoothDevice.current.gatt.disconnect();
+    try {
+      await BluetoothService.disconnect();
+      setIsConnected(false);
+      setHeartRate('--');
+    } catch (error) {
+      console.error('Error disconnecting:', error);
     }
-    setIsConnected(false);
-    setHeartRate('--');
-    bluetoothDevice.current = null;
   };
 
   useEffect(() => {
