@@ -26,7 +26,7 @@ interface AudioFeatures {
 }
 
 function App() {
-  const [heartRate, setHeartRate] = useState<number>(70);
+  const [heartRate, setHeartRate] = useState<string>('--');
   const [currentSong, setCurrentSong] = useState<any>(null);
   const [songs, setSongs] = useState<any[]>([]);
   const [player, setPlayer] = useState<any>(null);
@@ -40,6 +40,68 @@ function App() {
   const [songMetadata, setSongMetadata] = useState<Map<string, AudioFeatures>>(new Map());
   const [isLoadingFeatures, setIsLoadingFeatures] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const bluetoothDevice = useRef<any>(null);
+
+  const getHeartAnimationDuration = (bpm: string) => {
+    const numericBpm = parseInt(bpm);
+    return numericBpm ? `${60 / numericBpm * 0.8}s` : '2s'; // Default animation duration if no heart rate
+  };
+
+  const handleHRChange = (event: any) => {
+    const value = event.target.value;
+    const heartRate = value.getUint8(1);
+    setHeartRate(heartRate.toString());
+    if (songs.length > 0) {
+      selectSongForHeartRate(heartRate);
+    }
+  };
+
+  const initializeGarmin = async () => {
+    if (!navigator.bluetooth) {
+      alert('Bluetooth is not supported in your browser. Please use a modern browser with Web Bluetooth support.');
+      return;
+    }
+
+    setShowBluetoothDialog(true);
+
+    try {
+      const device = await navigator.bluetooth.requestDevice({
+        filters: [{ services: ['heart_rate'] }],
+        optionalServices: ['battery_service']
+      });
+
+      bluetoothDevice.current = device;
+      console.log('Device selected:', device.name);
+
+      const server = await device.gatt.connect();
+      const service = await server.getPrimaryService('heart_rate');
+      const characteristic = await service.getCharacteristic('heart_rate_measurement');
+
+      await characteristic.startNotifications();
+      characteristic.addEventListener('characteristicvaluechanged', handleHRChange);
+
+      setIsConnected(true);
+      setShowBluetoothDialog(false);
+    } catch (error) {
+      if ((error as Error).name === 'NotFoundError') {
+        // User cancelled the device picker - no need to show an error
+        setShowBluetoothDialog(false);
+        return;
+      }
+      console.error('Bluetooth Error:', error);
+      alert('Failed to connect to the device. Please try again.');
+      setShowBluetoothDialog(false);
+    }
+  };
+
+  const disconnectGarmin = async () => {
+    if (bluetoothDevice.current?.gatt.connected) {
+      await bluetoothDevice.current.gatt.disconnect();
+    }
+    setIsConnected(false);
+    setHeartRate('--');
+    bluetoothDevice.current = null;
+  };
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.hash.substring(1));
@@ -179,33 +241,6 @@ function App() {
     } catch (error) {
       console.error('Error playing track:', error);
     }
-  };
-
-  const initializeGarmin = () => {
-    if (!(window as any).garminConnectIQ) {
-      (window as any).garminConnectIQ = {
-        init: function() {
-          console.log("Garmin Connect IQ initialized");
-        },
-        onDeviceConnected: function(device: any) {
-          setIsConnected(true);
-          setShowBluetoothDialog(false);
-          startHeartRateMonitoring(device);
-        }
-      };
-
-      const script = document.createElement("script");
-      script.src = "https://developer.garmin.com/downloads/connect-iq/web-sdk/connectiq-web-api.js";
-      script.async = true;
-      document.body.appendChild(script);
-    }
-  };
-
-  const startHeartRateMonitoring = (device: any) => {
-    device.onHeartRateData = (data: any) => {
-      setHeartRate(data.heartRate);
-      selectSongForHeartRate(data.heartRate);
-    };
   };
 
   const fetchAudioFeatures = async (trackIds: string[]) => {
@@ -398,13 +433,8 @@ function App() {
 
   const skipSong = () => {
     if (currentSong) {
-      selectSongForHeartRate(heartRate);
+      selectSongForHeartRate(parseInt(heartRate));
     }
-  };
-
-  const getHeartAnimationDuration = (bpm: number) => {
-    const beatDuration = 60 / bpm;
-    return `${beatDuration * 0.8}s`;
   };
 
   const PlayerPlaceholder = () => (
@@ -413,10 +443,10 @@ function App() {
         <Music2 className="w-16 h-16 text-gray-400 mb-4" />
         <p className="text-gray-400 text-center px-4">
           {!isConnected && songs.length === 0 && (
-            "Connect your Garmin watch and upload a playlist to start"
+            "Connect your heart rate monitor and upload a playlist to start"
           )}
           {!isConnected && songs.length > 0 && (
-            "Connect your Garmin watch to start playing music"
+            "Connect your heart rate monitor to start playing music"
           )}
           {isConnected && songs.length === 0 && (
             "Upload a Spotify playlist to start playing music"
@@ -510,36 +540,26 @@ function App() {
           <div className="flex items-center">
             <Watch className={`w-6 h-6 ${isConnected ? 'text-green-500' : 'text-gray-400'} mr-2`} />
             <span className="text-sm">
-              {isConnected ? 'Garmin Watch Connected' : 'Waiting for Garmin Watch...'}
+              {isConnected ? 'Heart Rate Monitor Connected' : 'No Device Connected'}
             </span>
           </div>
           <button
-            onClick={() => {
-              initializeGarmin();
-              if (navigator.bluetooth) {
-                navigator.bluetooth.requestDevice({
-                  filters: [{ services: ['heart_rate'] }]
-                }).then(device => {
-                  console.log('Device selected:', device.name);
-                  setIsConnected(true);
-                }).catch(error => {
-                  console.error('Bluetooth Error:', error);
-                });
-              }
-            }}
-            className="flex items-center px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+            onClick={isConnected ? disconnectGarmin : initializeGarmin}
+            className={`flex items-center px-4 py-2 ${
+              isConnected ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'
+            } rounded-lg transition-colors`}
           >
             <Bluetooth className="w-4 h-4 mr-2" />
-            Connect Watch
+            {isConnected ? 'Disconnect' : 'Connect Device'}
           </button>
         </div>
 
         <div className="relative z-0 flex items-center justify-center mb-8 bg-black/20 rounded-xl p-8 backdrop-blur-sm">
           <div className="relative">
             <Heart 
-              className="w-16 h-16 text-red-500"
+              className="w-16 h-16 text-red-500 heart-pulse"
               style={{
-                animation: `pulse ${getHeartAnimationDuration(heartRate)} cubic-bezier(0.4, 0, 0.6, 1) infinite`,
+                animation: `pulse ${getHeartAnimationDuration(heartRate)} cubic-bezier(0.4, 0, 0.6, 1) infinite`
               }}
             />
             <style>{`
@@ -665,8 +685,8 @@ function App() {
         {showBluetoothDialog && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
             <div className="bg-gray-800 p-6 rounded-lg max-w-md w-full mx-4">
-              <h3 className="text-xl font-bold mb-4">Connect Garmin Watch</h3>
-              <p className="mb-4">Please ensure your Garmin watch is in pairing mode and nearby.</p>
+              <h3 className="text-xl font-bold mb-4">Connect Heart Rate Monitor</h3>
+              <p className="mb-4">Please ensure your heart rate monitor is nearby and ready to pair.</p>
               <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
               <p className="text-sm text-gray-400 text-center">Searching for devices...</p>
               <button
