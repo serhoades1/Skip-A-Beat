@@ -1,45 +1,26 @@
-export interface Song {
-  id: string;
-  name: string;
-  artist: string;
-  bpm: number;
+export interface AudioFeatures {
+  tempo: number;
   energy: number;
-  valence: number;
   danceability: number;
-  loudness: number;
-  genre?: string;
-  previewUrl?: string;
-  spotifyUrl?: string;
+  valence: number;
 }
 
-export interface PlaylistData {
-  id: string;
+export interface SavedPlaylist {
   name: string;
-  songs: Song[];
-  uploadedAt: number;
-  selected?: boolean;
-}
-
-export interface HeartRateData {
-  heartRate: number;
+  songs: SpotifyTrack[];
   timestamp: number;
 }
 
-export interface SpotifyAuth {
-  accessToken: string;
-  expiresIn: number;
+export interface SpotifyTrack {
+  'Track URI': string;
+  'Track Name': string;
+  'Artist Name(s)': string;
+  'Album Name': string;
+  'Album Image URL': string;
+  'Track Duration (ms)': number;
 }
 
-export interface HeartRateZone {
-  min: number;
-  max: number;
-  name: string;
-  description: string;
-  musicPreferences: {
-    minBPM: number;
-    maxBPM: number;
-    minEnergy: number;
-    minValence: number;
-    minDanceability: number;
-  };
+export interface PlayerState {
+  isPlaying: boolean;
+  track: Spotify.WebPlaybackTrack | null;
 }

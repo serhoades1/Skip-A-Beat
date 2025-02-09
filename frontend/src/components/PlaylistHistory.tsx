@@ -1,44 +1,46 @@
 import React from 'react';
-import { Clock, Music } from 'lucide-react';
-import { PlaylistData } from '../types';
+import { SavedPlaylist } from '../types';
 
 interface Props {
-  playlists: PlaylistData[];
-  onSelect: (playlist: PlaylistData) => void;
+  playlists: SavedPlaylist[];
+  onSelect: (playlist: SavedPlaylist) => void;
+  onClose: () => void;
 }
 
-const PlaylistHistory: React.FC<Props> = ({ playlists, onSelect }) => {
-  if (playlists.length === 0) return null;
-
+const PlaylistHistory: React.FC<Props> = ({ playlists, onSelect, onClose }) => {
   return (
-    <div className="bg-purple-900/50 rounded-lg p-6">
-      <div className="flex items-center gap-2 mb-4">
-        <Clock className="text-purple-300" size={24} />
-        <h2 className="text-xl font-semibold">Playlist History</h2>
-      </div>
-      <div className="space-y-3">
-        {playlists.map((playlist) => (
-          <button
-            key={playlist.id}
-            onClick={() => onSelect(playlist)}
-            className={`w-full flex items-center gap-3 p-4 rounded-lg transition-colors ${
-              playlist.selected 
-                ? 'bg-purple-600/70 hover:bg-purple-600/80'
-                : 'bg-purple-800/50 hover:bg-purple-700/50'
-            }`}
-          >
-            <Music className="text-purple-300" size={20} />
-            <div className="flex-1 text-left">
-              <h3 className="font-medium">{playlist.name}</h3>
-              <p className="text-sm text-gray-300">
-                {playlist.songs.length} songs • {new Date(playlist.uploadedAt).toLocaleDateString()}
-              </p>
-            </div>
-          </button>
-        ))}
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-gray-800 p-6 rounded-lg max-w-md w-full mx-4">
+        <h3 className="text-xl font-bold mb-4">Recent Playlists</h3>
+        {playlists.length > 0 ? (
+          <ul className="space-y-2">
+            {playlists.map((playlist, index) => (
+              <li key={index}>
+                <button
+                  onClick={() => onSelect(playlist)}
+                  className="w-full text-left p-3 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors"
+                >
+                  <div className="font-medium">{playlist.name}</div>
+                  <div className="text-sm text-gray-400">
+                    {new Date(playlist.timestamp).toLocaleDateString()} • 
+                    {playlist.songs.length} songs
+                  </div>
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-gray-400">No saved playlists yet</p>
+        )}
+        <button
+          onClick={onClose}
+          className="mt-4 w-full py-2 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors"
+        >
+          Close
+        </button>
       </div>
     </div>
   );
-}
+};
 
 export default PlaylistHistory;

@@ -1,27 +1,39 @@
 import React from 'react';
 import { Heart } from 'lucide-react';
-import { HeartRateData } from '../types';
-import MusicMatcher from '../services/MusicMatcher';
 
 interface Props {
-  heartRate: HeartRateData | null;
+  heartRate: string;
 }
 
 const HeartRateDisplay: React.FC<Props> = ({ heartRate }) => {
-  const zone = heartRate ? MusicMatcher.getCurrentZoneInfo(heartRate.heartRate) : null;
+  const getHeartAnimationDuration = (bpm: string) => {
+    const numericBpm = parseInt(bpm);
+    return numericBpm ? `${60 / numericBpm * 0.8}s` : '2s';
+  };
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2 text-2xl font-bold">
-        <Heart className="text-red-500 animate-pulse" size={32} />
-        <span>{heartRate ? `${heartRate.heartRate} BPM` : '--'}</span>
+    <div className="relative z-0 flex items-center justify-center mb-8 bg-black/20 rounded-xl p-8 backdrop-blur-sm">
+      <div className="relative">
+        <Heart 
+          className="w-16 h-16 text-red-500 heart-pulse"
+          style={{
+            animation: `pulse ${getHeartAnimationDuration(heartRate)} cubic-bezier(0.4, 0, 0.6, 1) infinite`
+          }}
+        />
+        <style>{`
+          @keyframes pulse {
+            0%, 100% {
+              transform: scale(1);
+              opacity: 1;
+            }
+            50% {
+              transform: scale(1.1);
+              opacity: 0.8;
+            }
+          }
+        `}</style>
       </div>
-      {zone && (
-        <div className="text-sm">
-          <div className="font-semibold text-purple-300">{zone.name} Zone</div>
-          <div className="text-gray-400">{zone.description}</div>
-        </div>
-      )}
+      <span className="text-4xl ml-4 font-bold">{heartRate} BPM</span>
     </div>
   );
 };
