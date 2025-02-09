@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import HeartRateDisplay from './components/HeartRateDisplay';
 import DeviceStatus from './components/DeviceStatus';
 import PlayerPlaceholder from './components/PlayerPlaceholder';
@@ -7,11 +7,49 @@ import NowPlaying from './components/NowPlaying';
 import SpotifyConnect from './components/SpotifyConnect';
 import PlaylistHistory from './components/PlaylistHistory';
 import BluetoothDialog from './components/BluetoothDialog';
+import HeartRateSimulator from './components/HeartRateSimulator';
 import SpotifyAuthService from './services/SpotifyAuthService';
 import { useHeartRatePlayer } from './hooks/useHeartRatePlayer';
 
 function App() {
   const { state, actions } = useHeartRatePlayer();
+  const [showSimulator, setShowSimulator] = useState(false);
+
+  const handleKeyPress = (event: KeyboardEvent) => {
+    if (event.key === 'h' && event.ctrlKey) {
+      setShowSimulator(prev => !prev);
+    }
+  };
+
+  React.useEffect(() => {
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, []);
+
+  const renderPlayer = () => {
+    if (!state.isAuthenticated) {
+      return <SpotifyConnect onLogin={SpotifyAuthService.initiateLogin} />;
+    }
+
+    if (state.currentSong) {
+      return (
+        <NowPlaying
+          song={state.currentSong}
+          isPlaying={state.isPlaying}
+          metadata={state.songMetadata}
+          onTogglePlay={actions.togglePlayback}
+          onSkip={actions.skipSong}
+        />
+      );
+    }
+
+    return (
+      <PlayerPlaceholder
+        isConnected={state.isConnected}
+        hasSongs={state.songs.length > 0}
+      />
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-900 to-black text-white p-8">
@@ -33,24 +71,7 @@ function App() {
           fileInputRef={state.fileInputRef}
         />
 
-        {!state.isAuthenticated ? (
-          <SpotifyConnect onLogin={SpotifyAuthService.initiateLogin} />
-        ) : (!state.isConnected || state.songs.length === 0) ? (
-          <PlayerPlaceholder
-            isConnected={state.isConnected}
-            hasSongs={state.songs.length > 0}
-          />
-        ) : (
-          state.currentSong && (
-            <NowPlaying
-              song={state.currentSong}
-              isPlaying={state.isPlaying}
-              metadata={state.songMetadata}
-              onTogglePlay={actions.togglePlayback}
-              onSkip={actions.skipSong}
-            />
-          )
-        )}
+        {renderPlayer()}
 
         {state.showBluetoothDialog && (
           <BluetoothDialog onCancel={() => actions.setShowBluetoothDialog(false)} />
@@ -63,6 +84,11 @@ function App() {
             onClose={() => actions.setShowPlaylistHistory(false)}
           />
         )}
+
+        <HeartRateSimulator
+          isVisible={showSimulator && !state.isConnected}
+          onHeartRateChange={(rate) => actions.simulateHeartRate(rate)}
+        />
       </div>
     </div>
   );

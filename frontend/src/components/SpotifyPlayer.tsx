@@ -1,30 +1,27 @@
 import React from 'react';
-import { Music2 } from 'lucide-react';
+import { SpotifyTrack } from '../types';
 
 interface Props {
-  isConnected: boolean;
-  currentSongId: string | null;
+  song: SpotifyTrack | null;
 }
 
-const SpotifyPlayer: React.FC<Props> = ({ isConnected, currentSongId }) => {
-  if (!isConnected) return null;
+const SpotifyPlayer: React.FC<Props> = ({ song }) => {
+  if (!song) return null;
+
+  const trackId = song['Track URI'].split(':')[2];
 
   return (
-    <div className="bg-purple-900/50 rounded-lg p-6">
-      <div className="flex items-center gap-2 mb-4">
-        <Music2 className="text-green-400" size={24} />
-        <h2 className="text-xl font-semibold">Now Playing</h2>
-      </div>
+    <div className="mt-4">
       <iframe
-        src={`https://open.spotify.com/embed/track/${currentSongId || ''}`}
+        src={`https://open.spotify.com/embed/track/${trackId}`}
         width="100%"
-        height="380"
+        height="80"
         frameBorder="0"
         allow="encrypted-media"
         className="rounded-lg"
       />
     </div>
   );
-}
+};
 
 export default SpotifyPlayer;

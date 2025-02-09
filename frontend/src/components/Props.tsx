@@ -1,6 +1,6 @@
 import React from 'react';
 import { Music } from 'lucide-react';
 
-interface Props {
+export interface Props {
   onConnect: () => void;
 }

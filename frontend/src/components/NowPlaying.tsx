@@ -12,6 +12,8 @@ interface Props {
 }
 
 const NowPlaying: React.FC<Props> = ({ song, isPlaying, metadata, onTogglePlay, onSkip }) => {
+  const trackId = song['Track URI'].split(':')[2];
+
   return (
     <div className="bg-white/10 rounded-lg p-6 backdrop-blur-lg relative z-10">
       <img 
@@ -21,6 +23,19 @@ const NowPlaying: React.FC<Props> = ({ song, isPlaying, metadata, onTogglePlay, 
       />
       <h2 className="text-2xl font-bold mb-2">{song['Track Name']}</h2>
       <p className="text-gray-300 mb-4">{song['Artist Name(s)']}</p>
+      
+      {/* Spotify Embed Player */}
+      <div className="mt-4 mb-6">
+        <iframe
+          key={trackId} // Add key to force re-render when track changes
+          src={`https://open.spotify.com/embed/track/${trackId}`}
+          width="100%"
+          height="80"
+          frameBorder="0"
+          allow="encrypted-media; autoplay"
+          className="rounded-lg"
+        />
+      </div>
       
       <SongCharacteristics song={song} metadata={metadata} />
 
